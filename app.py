@@ -12,8 +12,8 @@ app = Flask(__name__)
 # API Keys and Endpoints
 GPT5_API_URL = 'https://apis.prexzyvilla.site/ai/gpt5'
 POLL_IMAGE_URL = 'https://image.pollinations.ai/prompt'
-OPENROUTER_API_KEY_GROK = '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'
-OPENROUTER_API_KEY_QWEN = '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'
+OPENROUTER_API_KEY_GROK = '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'
+OPENROUTER_API_KEY_QWEN = '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'
 OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 SAMBANOVA_API_KEY = '4ec0f0b9-8578-41da-b7d5-c8d0e3a321b3'
 SAMBANOVA_API_URL = 'https://api.sambanova.ai/v1/chat/completions'
@@ -2028,3 +2028,4 @@ def api_remove_bg():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+
