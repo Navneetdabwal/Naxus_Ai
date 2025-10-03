@@ -12,14 +12,18 @@ app = Flask(__name__)
 # API Keys and Endpoints
 GPT5_API_URL = 'https://apis.prexzyvilla.site/ai/gpt5'
 POLL_IMAGE_URL = 'https://image.pollinations.ai/prompt'
-OPENROUTER_API_KEY_GROK = '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'
-OPENROUTER_API_KEY_QWEN = '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'
+OPENROUTER_API_KEY_GROK = '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'
+OPENROUTER_API_KEY_QWEN = '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'
 OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 SAMBANOVA_API_KEY = '4ec0f0b9-8578-41da-b7d5-c8d0e3a321b3'
 SAMBANOVA_API_URL = 'https://api.sambanova.ai/v1/chat/completions'
 TRAXDINOSAUR_API_URL = 'https://apiimagestrax.vercel.app/api/genimage'
 TRAXBG_API_URL = 'https://apirmbgtrax.vercel.app/remove-bg'
 PREXZY_IMAGE_URL = 'https://apis.prexzyvilla.site/ai/imagen'
+
+# New Model API Key
+NEW_MODEL_API_KEY = '021dd0d6-7dea-48b3-b55d-4e51866d5f5e'
+NEW_MODEL_API_URL = 'https://api.sambanova.ai/v1/chat/completions'
 
 # Create uploads directory
 os.makedirs('static/uploads', exist_ok=True)
@@ -184,6 +188,7 @@ HTML_TEMPLATE = '''
             display: flex;
             gap: 15px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .model-btn {
             background: var(--glass);
@@ -198,6 +203,7 @@ HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: 8px;
+            white-space: nowrap;
         }
         .model-btn.active {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -1069,6 +1075,10 @@ HTML_TEMPLATE = '''
                     <i class="fas fa-search"></i>
                     DeepSeek
                 </div>
+                <div class="model-btn" data-model="newmodel">
+                    <i class="fas fa-bolt"></i>
+                    AI Model
+                </div>
             </div>
         </div>
         <!-- Main Layout -->
@@ -1855,6 +1865,8 @@ def api_chat():
             response = handle_qwen(messages)
         elif model == 'deepseek':
             response = handle_deepseek(messages)
+        elif model == 'newmodel':
+            response = handle_newmodel(messages)
         else:
             response = handle_gpt5(messages) # Default fallback
 
@@ -1879,47 +1891,19 @@ def handle_gpt5(messages):
 
 def handle_grok(messages):
     try:
-        response = requests.post(
-            url=OPENROUTER_BASE_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY_GROK}",
-                "Content-Type": "application/json",
-            },
-            data=json.dumps({
-                "model": "x-ai/grok-4-fast:free",
-                "messages": messages
-            }),
-            timeout=30
-        )
-        response.raise_for_status()
-       
-        data = response.json()
-        return data['choices'][0]['message']['content']
+        # Temporary fix - return informative message
+        return "🤖 Grok model is currently unavailable due to API issues. Please try GPT-5 or other available models."
    
     except Exception as e:
-        return f"Grok Error: {str(e)}"
+        return f"Grok model is currently unavailable. Please try another model."
 
 def handle_qwen(messages):
     try:
-        response = requests.post(
-            url=OPENROUTER_BASE_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY_QWEN}",
-                "Content-Type": "application/json",
-            },
-            data=json.dumps({
-                "model": "qwen/qwen3-4b:free",
-                "messages": messages
-            }),
-            timeout=30
-        )
-        response.raise_for_status()
-       
-        data = response.json()
-        return data['choices'][0]['message']['content']
+        # Temporary fix - return informative message
+        return "🤖 Qwen model is currently unavailable due to API issues. Please try GPT-5 or other available models."
    
     except Exception as e:
-        return f"Qwen Error: {str(e)}"
+        return f"Qwen model is currently unavailable. Please try another model."
 
 def handle_deepseek(messages):
     try:
@@ -1943,6 +1927,29 @@ def handle_deepseek(messages):
    
     except Exception as e:
         return f"DeepSeek Error: {str(e)}"
+
+def handle_newmodel(messages):
+    try:
+        response = requests.post(
+            url=NEW_MODEL_API_URL,
+            headers={
+                "Authorization": f"Bearer {NEW_MODEL_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            data=json.dumps({
+                "model": "Meta-Llama-3.1-8B-Instruct",
+                "messages": messages,
+                "stream": False
+            }),
+            timeout=30
+        )
+        response.raise_for_status()
+       
+        data = response.json()
+        return data['choices'][0]['message']['content']
+   
+    except Exception as e:
+        return f"New AI Model Error: {str(e)}"
 
 @app.route('/api/generate-image', methods=['POST'])
 def api_generate_image():
@@ -1974,11 +1981,19 @@ def api_generate_image():
                     response = requests.get(api_url, timeout=60)
                     response.raise_for_status()
                     image_urls.append(response.url)
+                
                 elif model == 'prexzy':
                     api_url = f"{PREXZY_IMAGE_URL}?prompt={quote(prompt)}&ratio={quote(ratio)}"
                     response = requests.get(api_url, timeout=60)
                     response.raise_for_status()
-                    image_urls.append(response.url)
+                    
+                    # Fix: Parse JSON response and get image URL from 'result' field
+                    data = response.json()
+                    if data.get('status') and data.get('result'):
+                        image_urls.append(data['result'])
+                    else:
+                        continue
+                
                 else: # trax
                     trax_response = requests.post(
                         TRAXDINOSAUR_API_URL,
@@ -1989,10 +2004,13 @@ def api_generate_image():
                     if trax_response.status_code == 200:
                         img_base64 = b64encode(trax_response.content).decode('utf-8')
                         image_urls.append(f"data:image/png;base64,{img_base64}")
+            
             except Exception as e:
+                print(f"Error generating image with model {model}: {str(e)}")
                 continue
 
         return jsonify({'success': True, 'images': image_urls})
+    
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2028,5 +2046,3 @@ def api_remove_bg():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-
-
