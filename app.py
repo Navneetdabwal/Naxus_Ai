@@ -6,20 +6,24 @@ from base64 import b64encode
 import os
 import uuid
 from datetime import datetime
+
 app = Flask(__name__)
+
 # API Keys and Endpoints
 GPT5_API_URL = 'https://apis.prexzyvilla.site/ai/gpt5'
 POLL_IMAGE_URL = 'https://image.pollinations.ai/prompt'
-OPENROUTER_API_KEY_GROK = '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'
-OPENROUTER_API_KEY_QWEN = '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'
+OPENROUTER_API_KEY_GROK = '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'
+OPENROUTER_API_KEY_QWEN = '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'
 OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 SAMBANOVA_API_KEY = '4ec0f0b9-8578-41da-b7d5-c8d0e3a321b3'
 SAMBANOVA_API_URL = 'https://api.sambanova.ai/v1/chat/completions'
 TRAXDINOSAUR_API_URL = 'https://apiimagestrax.vercel.app/api/genimage'
 TRAXBG_API_URL = 'https://apirmbgtrax.vercel.app/remove-bg'
 PREXZY_IMAGE_URL = 'https://apis.prexzyvilla.site/ai/imagen'
+
 # Create uploads directory
 os.makedirs('static/uploads', exist_ok=True)
+
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -942,10 +946,78 @@ HTML_TEMPLATE = '''
             .tab-btn {
                 padding: 15px 20px;
                 font-size: 1rem;
+                white-space: nowrap;
             }
             .modal-content {
                 margin: 10% auto;
                 padding: 20px;
+                width: 95%;
+            }
+            .chat-container {
+                height: 400px;
+                padding: 15px;
+            }
+            .message {
+                max-width: 95%;
+                padding: 15px;
+            }
+            .input-area {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .send-btn {
+                width: 100%;
+                margin-top: 10px;
+            }
+            .image-results {
+                grid-template-columns: 1fr;
+            }
+            .upload-zone {
+                padding: 40px 20px;
+            }
+            .upload-icon {
+                font-size: 3rem;
+            }
+            .upload-text {
+                font-size: 1.1rem;
+            }
+            .modal-buttons {
+                flex-direction: column;
+            }
+            .modal-btn {
+                width: 100%;
+            }
+        }
+        /* Small Mobile */
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            .header {
+                padding: 20px 0;
+            }
+            .main-title {
+                font-size: 2rem;
+            }
+            .subtitle {
+                font-size: 1rem;
+            }
+            .control-group {
+                padding: 15px;
+            }
+            .prompt-input {
+                padding: 15px;
+            }
+            .generate-btn {
+                padding: 15px 30px;
+                font-size: 1rem;
+            }
+            .tab-btn {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+            .message-input {
+                padding: 15px;
             }
         }
         /* Cyber Elements */
@@ -1155,7 +1227,7 @@ HTML_TEMPLATE = '''
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
-                <button class="modal-btn modal-btn-primary" id="confirmDelete">Delete</button>
+                <button class="modal-btn modal-btn-primary" onclick="confirmDelete()" id="confirmDelete">Delete</button>
             </div>
         </div>
     </div>
@@ -1184,12 +1256,16 @@ HTML_TEMPLATE = '''
         let currentModel = 'gpt5';
         let currentTab = 'chat';
         let loadingMessageId = null;
+        let chatIdToDelete = null;
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadChatHistory();
             setupEventListeners();
             loadTheme();
+            createNewChat();
         });
+
         function setupEventListeners() {
             // Tab switching
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1197,12 +1273,14 @@ HTML_TEMPLATE = '''
                     switchTab(this.dataset.tab);
                 });
             });
+
             // Model selection
             document.querySelectorAll('.model-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     switchModel(this.dataset.model);
                 });
             });
+
             // Message input auto-resize and enter to send
             const messageInput = document.getElementById('messageInput');
             messageInput.addEventListener('input', function() {
@@ -1215,6 +1293,7 @@ HTML_TEMPLATE = '''
                     sendMessage();
                 }
             });
+
             // File upload handling
             const fileInput = document.getElementById('fileInput');
             const uploadZone = document.getElementById('uploadZone');
@@ -1224,31 +1303,38 @@ HTML_TEMPLATE = '''
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 uploadZone.addEventListener(eventName, preventDefaults, false);
             });
+
             function preventDefaults(e) {
                 e.preventDefault();
                 e.stopPropagation();
             }
+
             ['dragenter', 'dragover'].forEach(eventName => {
                 uploadZone.addEventListener(eventName, () => {
                     uploadZone.classList.add('dragover');
                 }, false);
             });
+
             ['dragleave', 'drop'].forEach(eventName => {
                 uploadZone.addEventListener(eventName, () => {
                     uploadZone.classList.remove('dragover');
                 }, false);
             });
+
             uploadZone.addEventListener('drop', handleDrop, false);
         }
+
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (file) processSelectedFile(file);
         }
+
         function handleDrop(e) {
             const dt = e.dataTransfer;
             const file = dt.files[0];
             if (file) processSelectedFile(file);
         }
+
         function processSelectedFile(file) {
             if (!file.type.match('image.*')) {
                 showStatus('Please select an image file (PNG, JPG, JPEG)', 'error');
@@ -1258,6 +1344,7 @@ HTML_TEMPLATE = '''
                 showStatus('File size must be less than 10MB', 'error');
                 return;
             }
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('originalPreview').src = e.target.result;
@@ -1267,6 +1354,7 @@ HTML_TEMPLATE = '''
             };
             reader.readAsDataURL(file);
         }
+
         function uploadAnother() {
             document.getElementById('fileInput').value = '';
             document.getElementById('previewArea').classList.add('hidden');
@@ -1275,6 +1363,7 @@ HTML_TEMPLATE = '''
             document.getElementById('uploadZone').style.display = 'block';
             document.getElementById('processedPreview').innerHTML = '<div class="status-message status-info"><i class="fas fa-sync fa-spin"></i> Processing...</div>';
         }
+
         // Modal functions
         function showModal(modalId, chatId = null) {
             document.getElementById(modalId).style.display = 'block';
@@ -1282,31 +1371,42 @@ HTML_TEMPLATE = '''
                 document.getElementById('renameInput').dataset.chatId = chatId;
                 document.getElementById('renameInput').value = chats[chatId].name;
             } else if (modalId === 'deleteModal' && chatId) {
-                document.getElementById('confirmDelete').dataset.chatId = chatId;
+                chatIdToDelete = chatId;
             }
         }
+
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
         }
+
         function confirmRename() {
             const input = document.getElementById('renameInput');
             const chatId = input.dataset.chatId;
             const newName = input.value.trim() || 'New Chat';
-            chats[chatId].name = newName;
-            saveChatHistory();
-            loadChatHistory();
-            closeModal('renameModal');
-        }
-        function confirmDelete() {
-            const chatId = document.getElementById('confirmDelete').dataset.chatId;
-            delete chats[chatId];
-            saveChatHistory();
-            loadChatHistory();
-            if (currentChatId === chatId) {
-                createNewChat();
+            
+            if (chats[chatId]) {
+                chats[chatId].name = newName;
+                saveChatHistory();
+                loadChatHistory();
+                closeModal('renameModal');
             }
-            closeModal('deleteModal');
         }
+
+        function confirmDelete() {
+            if (chatIdToDelete && chats[chatIdToDelete]) {
+                delete chats[chatIdToDelete];
+                saveChatHistory();
+                loadChatHistory();
+                
+                if (currentChatId === chatIdToDelete) {
+                    createNewChat();
+                }
+                
+                closeModal('deleteModal');
+                chatIdToDelete = null;
+            }
+        }
+
         // Close modals on outside click
         window.onclick = function(event) {
             const modals = document.querySelectorAll('.modal');
@@ -1316,6 +1416,7 @@ HTML_TEMPLATE = '''
                 }
             });
         }
+
         // Theme management
         function toggleTheme() {
             currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -1325,6 +1426,7 @@ HTML_TEMPLATE = '''
             const themeIcon = document.querySelector('.theme-toggle i');
             themeIcon.className = currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
         }
+
         function loadTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             currentTheme = savedTheme;
@@ -1333,6 +1435,7 @@ HTML_TEMPLATE = '''
             const themeIcon = document.querySelector('.theme-toggle i');
             themeIcon.className = currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
         }
+
         // Tab management
         function switchTab(tabName) {
             currentTab = tabName;
@@ -1347,6 +1450,7 @@ HTML_TEMPLATE = '''
                 content.classList.toggle('active', content.id === tabName + '-tab');
             });
         }
+
         // Model management
         function switchModel(modelName) {
             currentModel = modelName;
@@ -1356,6 +1460,7 @@ HTML_TEMPLATE = '''
                 btn.classList.toggle('active', btn.dataset.model === modelName);
             });
         }
+
         // Chat management
         function createNewChat() {
             currentChatId = 'chat-' + Date.now();
@@ -1383,21 +1488,21 @@ HTML_TEMPLATE = '''
             saveChatHistory();
             loadChatHistory();
         }
+
         function loadChatHistory() {
             const savedChats = localStorage.getItem('nexusChats');
             if (savedChats) {
                 chats = JSON.parse(savedChats);
-            } else {
-                // Create initial chat
-                createNewChat();
-                return;
             }
+            
             const chatList = document.getElementById('chatList');
             chatList.innerHTML = '';
+            
             // Sort chats by creation date (newest first)
             const sortedChatIds = Object.keys(chats).sort((a, b) => {
                 return new Date(chats[b].createdAt) - new Date(chats[a].createdAt);
             });
+
             sortedChatIds.forEach(chatId => {
                 const chat = chats[chatId];
                 const lastMessage = chat.messages.length > 0 ?
@@ -1422,22 +1527,25 @@ HTML_TEMPLATE = '''
                         <div class="chat-time">${formatTime(chat.createdAt)}</div>
                     </div>
                     <div class="chat-actions">
-                        <button class="chat-action-btn" onclick="showModal('renameModal', '${chatId}')" title="Rename">
+                        <button class="chat-action-btn" onclick="event.stopPropagation(); showModal('renameModal', '${chatId}')" title="Rename">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="chat-action-btn" onclick="showModal('deleteModal', '${chatId}')" title="Delete">
+                        <button class="chat-action-btn" onclick="event.stopPropagation(); showModal('deleteModal', '${chatId}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 `;
                
-                chatItem.addEventListener('click', (e) => {
-                    if (e.target.closest('.chat-actions')) return;
-                    loadChat(chatId);
+                chatItem.addEventListener('click', function(e) {
+                    if (!e.target.closest('.chat-actions')) {
+                        loadChat(chatId);
+                    }
                 });
+                
                 chatList.appendChild(chatItem);
             });
         }
+
         function loadChat(chatId) {
             currentChatId = chatId;
             const chat = chats[chatId];
@@ -1461,29 +1569,36 @@ HTML_TEMPLATE = '''
             chatContainer.scrollTop = chatContainer.scrollHeight;
             loadChatHistory();
         }
+
         function saveChatHistory() {
             localStorage.setItem('nexusChats', JSON.stringify(chats));
         }
+
         function formatTime(isoString) {
             const date = new Date(isoString);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         }
+
         // Message sending
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
            
             if (!message) return;
+
             // Add user message
             addMessageToChat('user', message);
             input.value = '';
             input.style.height = 'auto';
+
             // Disable send button
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<div class="loading"></div> PROCESSING';
+
             // Add loading message
             showLoadingMessage();
+
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
@@ -1496,9 +1611,12 @@ HTML_TEMPLATE = '''
                         chatId: currentChatId
                     })
                 });
+                
                 const data = await response.json();
+                
                 // Remove loading message
                 hideLoadingMessage();
+                
                 if (data.success) {
                     addMessageToChat('assistant', data.response);
                 } else {
@@ -1514,6 +1632,7 @@ HTML_TEMPLATE = '''
                 sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> SEND';
             }
         }
+
         function showLoadingMessage() {
             const chatContainer = document.getElementById('chatContainer');
             const loadingDiv = document.createElement('div');
@@ -1530,22 +1649,27 @@ HTML_TEMPLATE = '''
             chatContainer.scrollTop = chatContainer.scrollHeight;
             loadingMessageId = 'loadingMessage';
         }
+
         function hideLoadingMessage() {
             const loadingDiv = document.getElementById('loadingMessage');
             if (loadingDiv) {
                 loadingDiv.remove();
             }
         }
+
         function addMessageToChat(role, content) {
             if (!chats[currentChatId]) {
                 createNewChat();
             }
+
             // Update chat name if it's the first user message
             if (role === 'user' && chats[currentChatId].name === 'New Chat') {
                 chats[currentChatId].name = content.substring(0, 30) + (content.length > 30 ? '...' : '');
             }
+
             chats[currentChatId].messages.push({ role, content });
             saveChatHistory();
+
             const chatContainer = document.getElementById('chatContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = role === 'user' ? 'user-message message' : 'bot-message message';
@@ -1562,21 +1686,26 @@ HTML_TEMPLATE = '''
            
             loadChatHistory();
         }
+
         // Image generation
         async function generateImage() {
             const prompt = document.getElementById('imagePrompt').value.trim();
             const ratio = document.getElementById('imageRatio').value;
             const count = parseInt(document.getElementById('imageCount').value);
             const imageModel = document.getElementById('imageModel').value;
+
             if (!prompt) {
                 showStatus('Please enter a prompt for image generation', 'error');
                 return;
             }
+
             const generateBtn = document.getElementById('generateBtn');
             generateBtn.disabled = true;
             generateBtn.innerHTML = '<div class="loading"></div> GENERATING...';
+
             const resultsDiv = document.getElementById('imageResults');
             resultsDiv.innerHTML = '<div class="status-message status-info"><i class="fas fa-sync fa-spin"></i> Generating images... This may take a few moments.</div>';
+
             try {
                 const response = await fetch('/api/generate-image', {
                     method: 'POST',
@@ -1590,7 +1719,9 @@ HTML_TEMPLATE = '''
                         model: imageModel
                     })
                 });
+
                 const data = await response.json();
+                
                 if (data.success) {
                     resultsDiv.innerHTML = '';
                     data.images.forEach((imageUrl, index) => {
@@ -1619,27 +1750,35 @@ HTML_TEMPLATE = '''
                 generateBtn.innerHTML = '<i class="fas fa-magic"></i> GENERATE IMAGES';
             }
         }
+
         // Background removal
         async function processImage() {
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
+            
             if (!file) {
                 showStatus('Please select an image first', 'error');
                 return;
             }
+
             const processBtn = document.getElementById('processBtn');
             processBtn.disabled = true;
             processBtn.innerHTML = '<div class="loading"></div> PROCESSING...';
+
             const processedPreview = document.getElementById('processedPreview');
             processedPreview.innerHTML = '<div class="status-message status-info"><i class="fas fa-sync fa-spin"></i> Removing background... This may take a few seconds.</div>';
+
             const formData = new FormData();
             formData.append('image', file);
+
             try {
                 const response = await fetch('/api/remove-bg', {
                     method: 'POST',
                     body: formData
                 });
+
                 const data = await response.json();
+                
                 if (data.success) {
                     processedPreview.innerHTML = `
                         <img src="${data.imageUrl}" class="preview-image" alt="Background removed">
@@ -1660,6 +1799,7 @@ HTML_TEMPLATE = '''
                 processBtn.innerHTML = '<i class="fas fa-cut"></i> REMOVE BACKGROUND';
             }
         }
+
         // Utility functions
         function showStatus(message, type) {
             const statusDiv = document.createElement('div');
@@ -1672,12 +1812,14 @@ HTML_TEMPLATE = '''
                 statusDiv.remove();
             }, 5000);
         }
+
         function downloadImage(url, filename) {
             const link = document.createElement('a');
             link.href = url;
             link.download = filename;
             link.click();
         }
+
         function viewImage(url) {
             window.open(url, '_blank');
         }
@@ -1685,9 +1827,11 @@ HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
+
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
     try:
@@ -1695,10 +1839,13 @@ def api_chat():
         message = data.get('message', '')
         model = data.get('model', 'gpt5')
         chat_id = data.get('chatId', '')
+
         if not message:
             return jsonify({'success': False, 'error': 'No message provided'})
+
         # Prepare the conversation history
         messages = [{"role": "user", "content": message}]
+
         # Route to appropriate API based on model selection
         if model == 'gpt5':
             response = handle_gpt5(messages)
@@ -1710,9 +1857,11 @@ def api_chat():
             response = handle_deepseek(messages)
         else:
             response = handle_gpt5(messages) # Default fallback
+
         return jsonify({'success': True, 'response': response})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
 def handle_gpt5(messages):
     try:
         text = messages[-1]['content']
@@ -1727,6 +1876,7 @@ def handle_gpt5(messages):
    
     except Exception as e:
         return f"GPT-5 Error: {str(e)}"
+
 def handle_grok(messages):
     try:
         response = requests.post(
@@ -1748,6 +1898,7 @@ def handle_grok(messages):
    
     except Exception as e:
         return f"Grok Error: {str(e)}"
+
 def handle_qwen(messages):
     try:
         response = requests.post(
@@ -1769,6 +1920,7 @@ def handle_qwen(messages):
    
     except Exception as e:
         return f"Qwen Error: {str(e)}"
+
 def handle_deepseek(messages):
     try:
         response = requests.post(
@@ -1791,6 +1943,7 @@ def handle_deepseek(messages):
    
     except Exception as e:
         return f"DeepSeek Error: {str(e)}"
+
 @app.route('/api/generate-image', methods=['POST'])
 def api_generate_image():
     try:
@@ -1799,8 +1952,10 @@ def api_generate_image():
         ratio = data.get('ratio', '1:1')
         count = data.get('count', 1)
         model = data.get('model', 'pollinations')
+
         if not prompt:
             return jsonify({'success': False, 'error': 'No prompt provided'})
+
         ratio_map = {
             '1:1': {'width': 1024, 'height': 1024},
             '16:9': {'width': 1280, 'height': 720},
@@ -1808,8 +1963,10 @@ def api_generate_image():
             '3:4': {'width': 768, 'height': 1024},
             '19:6': {'width': 1900, 'height': 600}
         }
+
         dimensions = ratio_map.get(ratio, ratio_map['1:1'])
         image_urls = []
+
         for i in range(min(count, 4)): # Max 4 images
             try:
                 if model == 'pollinations':
@@ -1834,17 +1991,21 @@ def api_generate_image():
                         image_urls.append(f"data:image/png;base64,{img_base64}")
             except Exception as e:
                 continue
+
         return jsonify({'success': True, 'images': image_urls})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/remove-bg', methods=['POST'])
 def api_remove_bg():
     try:
         if 'image' not in request.files:
             return jsonify({'success': False, 'error': 'No image file provided'})
+
         file = request.files['image']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No image file selected'})
+
         files = {'image': (file.filename, file.read(), file.content_type)}
         response = requests.post(
             TRAXBG_API_URL,
@@ -1854,6 +2015,7 @@ def api_remove_bg():
         )
         response.raise_for_status()
         data = response.json()
+
         if data.get('status') == 'success' and data.get('output_url'):
             return jsonify({
                 'success': True,
@@ -1863,5 +2025,6 @@ def api_remove_bg():
             return jsonify({'success': False, 'error': 'Background removal failed'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
