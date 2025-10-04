@@ -25,6 +25,9 @@ PREXZY_IMAGE_URL = 'https://apis.prexzyvilla.site/ai/imagen'
 NEW_MODEL_API_KEY = '021dd0d6-7dea-48b3-b55d-4e51866d5f5e'
 NEW_MODEL_API_URL = 'https://api.sambanova.ai/v1/chat/completions'
 
+# Nexus Imagen API
+NEXUS_IMAGEN_URL = 'https://text-to-image.bjcoderx.workers.dev/'
+
 # Create uploads directory
 os.makedirs('static/uploads', exist_ok=True)
 
@@ -1174,6 +1177,7 @@ HTML_TEMPLATE = '''
                                 <option value="pollinations">Pollinations AI</option>
                                 <option value="trax">Trax Dinosaur</option>
                                 <option value="prexzy">Prexzy Imagen</option>
+                                <option value="nexus">Nexus Imagen</option>
                             </select>
                         </div>
                     </div>
@@ -1993,6 +1997,18 @@ def api_generate_image():
                         image_urls.append(data['result'])
                     else:
                         continue
+                
+                elif model == 'nexus':
+                    # Nexus Imagen API integration
+                    api_url = f"{NEXUS_IMAGEN_URL}?text={quote(prompt)}"
+                    response = requests.get(api_url, timeout=60)
+                    response.raise_for_status()
+                    
+                    # The Nexus Imagen API returns the image directly
+                    if response.status_code == 200:
+                        # Convert the image to base64 for display
+                        img_base64 = b64encode(response.content).decode('utf-8')
+                        image_urls.append(f"data:image/png;base64,{img_base64}")
                 
                 else: # trax
                     trax_response = requests.post(
